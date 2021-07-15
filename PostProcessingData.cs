@@ -37,6 +37,9 @@ public class PostProcessingData:ScriptableObject
 
         [Reload("Shaders/PostProcessing/FXAA.shader")]
         public Shader fxaa;
+
+        [Reload("Shaders/PostProcessing/CopyDepth.shader")]
+        public Shader CopyDepth;
     }
 
     public ShaderResources shaders;

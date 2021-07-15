@@ -12,3 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b336a799ff276734aa4ccf0cc0986e7b, type: 3}
   m_Name: CustomPostProcessData
   m_EditorClassIdentifier: 
+  shaders:
+    smaa: {fileID: 4800000, guid: 873a59850c869da4a920bf8b882a08d3, type: 3}
+    fxaa: {fileID: 4800000, guid: 639e4137fbe0434439344a243e1e4691, type: 3}
+    CopyDepth: {fileID: 4800000, guid: fd2ad63d94ba5f94f8b6008469e37bc0, type: 3}

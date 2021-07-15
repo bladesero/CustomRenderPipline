@@ -13,3 +13,4 @@ MonoBehaviour:
   m_Name: New Custom Render Pipeline Asset
   m_EditorClassIdentifier: 
   enable: 1
+  renderScale: 1.4

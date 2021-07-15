@@ -25,8 +25,10 @@ public class CustomPipeline : RenderPipeline
 {
     CRPRenderer crprender = new CRPRenderer();
 
-    public CustomPipeline()
+    public CustomRenderPipelineAsset CRPAsset = null;
+    public CustomPipeline(CustomRenderPipelineAsset asset)
     {
+        CRPAsset = asset;
         PerCameraBuffer._InvCameraViewProj = Shader.PropertyToID("_InvCameraViewProj");
         PerCameraBuffer._ScreenParams = Shader.PropertyToID("_ScreenParams");
         PerCameraBuffer._ScaledScreenParams = Shader.PropertyToID("_ScaledScreenParams");
@@ -35,6 +37,7 @@ public class CustomPipeline : RenderPipeline
 
     protected override void Render(ScriptableRenderContext context, Camera[] cameras)
     {
+        crprender.renderScale = CRPAsset.renderScale;
         BeginFrameRendering(context, cameras);
         SortCameras(cameras);
         foreach (Camera camera in cameras)

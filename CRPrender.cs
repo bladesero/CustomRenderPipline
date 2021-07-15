@@ -18,25 +18,30 @@ public class CRPRenderer
     ScriptableRenderContext context;
     Camera camera;
     static Material errorMaterial;
+    static int cameraColorTextureId = Shader.PropertyToID("_CameraColorTexture");
+    static int cameraDepthTextureId = Shader.PropertyToID("_CameraDepthTexture");
+    static int cameraNormalTextureId= Shader.PropertyToID("_CameraNormalTexture");
+
+    static RenderTargetIdentifier[] gbuffers = new RenderTargetIdentifier[]
+    {
+        cameraColorTextureId,cameraNormalTextureId
+    };
+
+    public float renderScale = 1.0f;
 
     //Passes
     ForwardLight forwardLight = new ForwardLight();
     OpaquePass opaquePass=new OpaquePass();
     PostProcessingPass processingPass = new PostProcessingPass();
 
-    const string bufferName = "render camera";
+    const string bufferName = "Render Camera";
     CommandBuffer buffer = new CommandBuffer { name = bufferName };
 
-    /// Use to clear Color RT
     public void Setup()
     {
-        
         buffer.BeginSample(bufferName);
         buffer.ClearRenderTarget(true, true, Color.clear);
-        context.ExecuteCommandBuffer(buffer);
-        buffer.EndSample(bufferName);
-        buffer.Clear();
-        context.Submit();        
+        ExecuteBuffer();    
     }
 
     public void Render(ScriptableRenderContext context, Camera camera)
@@ -44,28 +49,61 @@ public class CRPRenderer
         this.context = context;
         this.camera = camera;
 
+        int width = (int)(renderScale * camera.pixelWidth);
+        int height = (int)(renderScale * camera.pixelHeight);
+
+        //var colorDescripter = new RenderTextureDescriptor(width, height, RenderTextureFormat.RGB111110Float,
+        //    24);
+
+        buffer.GetTemporaryRT(cameraColorTextureId, width,
+            height, 0,
+                FilterMode.Bilinear, RenderTextureFormat.RGB111110Float);
+        
+        buffer.GetTemporaryRT(cameraNormalTextureId, width,
+            height, 0,
+                FilterMode.Bilinear, RenderTextureFormat.Default);
+
+        buffer.GetTemporaryRT(cameraDepthTextureId, width,
+            height, 32,
+            FilterMode.Point, RenderTextureFormat.Depth);
+
+        //buffer.SetRenderTarget(cameraColorTextureId,
+        //        RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store,
+        //    cameraDepthTextureId,
+        //        RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+        buffer.SetRenderTarget(gbuffers,cameraDepthTextureId);
+
         context.SetupCameraProperties(camera);
         Setup();
-
-        buffer.BeginSample(bufferName);
-
-        context.DrawSkybox(camera);
 
         DrawUnsupportedShaders();
 
         forwardLight.Setup(context, camera);
+        forwardLight.shadowcastpass.Execute(context, camera);
+
+        //buffer.SetRenderTarget(cameraColorTextureId,
+        //        RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store,
+        //    cameraDepthTextureId,
+        //        RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+        buffer.SetRenderTarget(gbuffers, cameraDepthTextureId);
+        ExecuteBuffer();
+
         opaquePass.Execute(context, camera);
+
+        context.DrawSkybox(camera);
+
         processingPass.Execute(context, camera);
 
         if (!IsGameCamera(camera))
         {
             context.DrawGizmos(camera, GizmoSubset.PostImageEffects);
         }
-        buffer.Clear();
+
+        buffer.ReleaseTemporaryRT(cameraColorTextureId);
+        buffer.ReleaseTemporaryRT(cameraDepthTextureId);
         buffer.EndSample(bufferName);
+        ExecuteBuffer();
         context.Submit();
-        
-        
     }
 
     public static bool IsGameCamera(Camera camera)
@@ -99,5 +137,11 @@ public class CRPRenderer
         context.DrawRenderers(
             cullingResults, ref drawingSettings, ref filteringSettings
         );
+    }
+
+    void ExecuteBuffer()
+    {
+        context.ExecuteCommandBuffer(buffer);
+        buffer.Clear();
     }
 }

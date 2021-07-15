@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -53,32 +54,58 @@ public struct RenderTargetHandle
 
 public class PostProcessingPass : ScriptableRenderPass
 {
-    RenderTextureDescriptor m_Descriptor;
-    RenderTargetHandle m_Source;
-    RenderTargetHandle m_Destination;
-    MaterialLibrary m_Materials;
-    Material m_BlitMaterial;
+    [Reload("/Asset/CustomPostProcessData.asset")]
+    public PostProcessingData postProcessData = AssetDatabase.LoadAssetAtPath<PostProcessingData>(CustomRenderPipelineAsset.packagePath + "/Asset/CustomPostProcessData.asset");
 
     const string k_RenderPostProcessingTag = "Render PostProcessing Effects";
-    const string k_RenderFinalPostProcessingTag = "Render Final PostProcessing Pass";
 
-    SMAA SMAAPass=new SMAA();
+    FXAA FXAAPass =new FXAA();
+    CopyDepth copyDepthPass = new CopyDepth();
+
+    public PostProcessingPass()
+    {
+#if UNITY_EDITOR
+        if (postProcessData == null)
+        {
+            ResourceReloader.TryReloadAllNullIn(postProcessData, CustomRenderPipelineAsset.packagePath);
+        }
+#endif
+    }
+
     public override void Execute(ScriptableRenderContext context, Camera camera)
     {
         var cmd = CommandBufferPool.Get(k_RenderPostProcessingTag);
 
-        m_Source.Init("_FinalColor");
-        m_Source.id = (int)BuiltinRenderTextureType.CameraTarget;
+        {//CopyDepthPass
+            copyDepthPass.m_Source.Init("_CameraDepthTexture");
 
-        m_Destination.Init("_Dest");
-        m_Destination.id = (int)BuiltinRenderTextureType.CurrentActive;
-        m_Descriptor.height = camera.pixelHeight;
-        m_Descriptor.width = camera.pixelWidth;
-        m_Descriptor.graphicsFormat = GraphicsFormat.B8G8R8_SRGB;
+            copyDepthPass.m_Destination.Init("_CameraDepthTexture");
 
-        //SMAAPass
-        //SMAAPass.m_BlitMaterial = m_Materials.subpixelMorphologicalAntialiasing;
-        SMAAPass.Execute(context, camera, cmd);
+            if (copyDepthPass.m_BlitMaterial == null)
+            {
+                copyDepthPass.m_BlitMaterial = new Material(postProcessData.shaders.CopyDepth);
+                copyDepthPass.m_BlitMaterial.hideFlags = HideFlags.HideAndDontSave;
+            }
+
+            if (camera.cameraType == CameraType.SceneView || camera.cameraType == CameraType.Game)
+                copyDepthPass.Execute(context, camera, cmd);
+        }
+
+        {//FXAA Pass
+            FXAAPass.m_Source.Init("_CameraColorTexture");
+
+            FXAAPass.m_Destination.Init("_CameraDepthTexture");
+
+            if (FXAAPass.m_BlitMaterial == null)
+            {
+                FXAAPass.m_BlitMaterial = new Material(postProcessData.shaders.fxaa);
+                FXAAPass.m_BlitMaterial.hideFlags = HideFlags.HideAndDontSave;
+            }
+
+            if (camera.cameraType == CameraType.SceneView || camera.cameraType == CameraType.Game)
+                FXAAPass.Execute(context, camera, cmd);
+        }
+        
 
         context.ExecuteCommandBuffer(cmd);
         CommandBufferPool.Release(cmd);
@@ -88,8 +115,8 @@ public class PostProcessingPass : ScriptableRenderPass
 public abstract class PostProcessingComponent
 {
     public RenderTextureDescriptor m_Descriptor;
-    public int m_Source;
-    public int m_Destination;
+    public RenderTargetHandle m_Source;
+    public RenderTargetHandle m_Destination;
     public Material m_BlitMaterial;
 
     public abstract void Execute(ScriptableRenderContext context, Camera camera, CommandBuffer cmd);
@@ -102,10 +129,22 @@ class MaterialLibrary
     public readonly Material FastApproximateAntialiasing;
 }
 
-static class ShaderConstants
+//static class ShaderConstants
+//{
+//    public static readonly int _EdgeTexture = Shader.PropertyToID("_EdgeTexture");
+//    public static readonly int _BlendTexture = Shader.PropertyToID("_BlendTexture");
+//}
+
+public class CopyDepth : PostProcessingComponent
 {
-    public static readonly int _EdgeTexture = Shader.PropertyToID("_EdgeTexture");
-    public static readonly int _BlendTexture = Shader.PropertyToID("_BlendTexture");
+    const string k_CopyDepthPostProcessingTag = "CopyDepth Pass";
+
+    public override void Execute(ScriptableRenderContext context, Camera camera, CommandBuffer cmd)
+    {
+        cmd.BeginSample(k_CopyDepthPostProcessingTag);
+        cmd.Blit(m_Source.id, BuiltinRenderTextureType.CameraTarget, m_BlitMaterial, 0);
+        cmd.EndSample(k_CopyDepthPostProcessingTag);
+    }
 }
 
 public class SMAA : PostProcessingComponent
@@ -114,16 +153,17 @@ public class SMAA : PostProcessingComponent
 
     public override void Execute(ScriptableRenderContext context, Camera camera, CommandBuffer cmd)
     {
-
-        //cmd.GetTemporaryRT()
     }
 }
 
 public class FXAA : PostProcessingComponent
 {
+    const string k_RenderFXAAPostProcessingTag = "FXAA Pass";
 
     public override void Execute(ScriptableRenderContext context, Camera camera, CommandBuffer cmd)
     {
-
+        cmd.BeginSample(k_RenderFXAAPostProcessingTag);
+        cmd.Blit(m_Source.id, BuiltinRenderTextureType.CameraTarget, m_BlitMaterial, 0);
+        cmd.EndSample(k_RenderFXAAPostProcessingTag);
     }
 }

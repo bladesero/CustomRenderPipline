@@ -210,7 +210,7 @@ real PerceptualRoughnessToRoughness(real perceptualRoughness)
     return perceptualRoughness * perceptualRoughness;
 }
 
-float3 DirecBRDF(BRDFData brdfData, half3 normalWS, half3 lightDirectionWS, half3 viewDirectionWS)
+float3 DirecBRDF(BRDFData brdfData, half3 normalWS, half3 lightDirectionWS, half3 viewDirectionWS,float attenuation)
 {
     float3 H = normalize(lightDirectionWS + viewDirectionWS);
     float NoH = saturate(dot(normalWS, H));
@@ -223,11 +223,11 @@ float3 DirecBRDF(BRDFData brdfData, half3 normalWS, half3 lightDirectionWS, half
     return color;
 }
 
-float3 LightingPhysicallyBased(BRDFData brdfData, float3 lightColor, float3 lightDirectionWS, float3 normalWS, float3 viewDirectionWS)
+float3 LightingPhysicallyBased(BRDFData brdfData, float3 lightColor, float3 lightDirectionWS, float3 normalWS, float3 viewDirectionWS, float attenuation)
 {
     float nol = saturate(dot(normalWS, lightDirectionWS));
-    float3 radiance = lightColor * nol;
-    return DirecBRDF(brdfData, normalWS, lightDirectionWS, viewDirectionWS) * radiance;
+    float3 radiance = lightColor * nol*attenuation;
+    return DirecBRDF(brdfData, normalWS, lightDirectionWS, viewDirectionWS, attenuation) * radiance;
 }
 
 half3 EnvironmentBRDF(BRDFData brdfData, half3 indirectDiffuse, half3 indirectSpecular, half fresnelTerm)
@@ -248,7 +248,7 @@ float3 GI(BRDFData brdfData, half3 bakedGI, half occlusion, half3 normalWS, half
     return EnvironmentBRDF(brdfData, indirectDiffuse, indirectSpecular, fresnelTerm);
 }
 
-float3 PBR(InputData inputData,float3 albedo,float metallic,float3 specular,float smoothness,float occlusion,float3 emission)
+float3 PBR(InputData inputData,float3 albedo,float metallic,float3 specular,float smoothness,float occlusion,float3 emission,float attenuation)
 {
     BRDFData brdfData;
     float oneMinusReflectivity = OneMinusReflectivityMetallic(metallic);
@@ -268,7 +268,7 @@ float3 PBR(InputData inputData,float3 albedo,float metallic,float3 specular,floa
     float3 bakeGI = SampleSH(inputData.normalWS);
 
     float3 color = GI(brdfData, bakeGI, 1, inputData.normalWS, inputData.viewDirectionWS);
-    color += LightingPhysicallyBased(brdfData, _MainLightColor.xyz, _MainLightPosition.xyz, inputData.normalWS, inputData.viewDirectionWS);
+    color += LightingPhysicallyBased(brdfData, _MainLightColor.xyz, normalize(_MainLightPosition.xyz), inputData.normalWS, inputData.viewDirectionWS, attenuation);
 
     return color;
 }

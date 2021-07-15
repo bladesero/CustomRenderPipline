@@ -21,12 +21,11 @@
             Tags{"LightMode" = "CRPLit"}
         HLSLPROGRAM
         #include "lib/BRDF/BRDF.hlsl"
+        #include "lib/BRDF/Shadow.hlsl"
         //CBUFFER_START(UnityPerDraw)
         float4x4 unity_MatrixVP;
         float4x4 unity_ObjectToWorld;
         float4x4 UNITY_MATRIX_M;
-        //float4 _MainLightPosition;
-        //float4 _MainLightColor;
         float3 _WorldSpaceCameraPos;
 
         //CBUFFER_END
@@ -84,7 +83,7 @@
         return output;
     }
 
-    float4 frag(vertexOutput input) :SV_TARGET
+    float4 frag(vertexOutput input, out float3 GRT0:SV_Target1) :SV_TARGET
     {
         //base vectors
         float3 viewdir = normalize(_WorldSpaceCameraPos.xyz - input.worldPos.xyz);
@@ -96,7 +95,7 @@
         normal = NormalTangentToWorld(normalTS, normal, normalize(input.tangentWS));
         float3 reflectdir = reflect(-viewdir, normal);
 
-        float ndotl = saturate(dot(normal, _MainLightPosition.xyz));
+        float ndotl = saturate(dot(normal, lightdir));
         float3 color = ndotl;
 
         float4 albedo = _MainTex.Sample(sampler_MainTex, input.uv);
@@ -111,11 +110,15 @@
         float3 enviromentReflect = EnviromentReflection(reflectdir, 1 - _Glossiness);
 
         InputData inputData;
-        inputData.positionWS = input.worldPos;
+        inputData.positionWS = input.worldPos.xyz;
         inputData.normalWS = normal;
         inputData.viewDirectionWS = viewdir;
         inputData.bakedGI = 1;
-        float3 brdf = PBR(inputData, albedo.rgb, _Metallic* metal, float3(0.5, 0.5, 0.5), _Glossiness* rough, 1, float3(0, 0, 0));
+        
+        GRT0 = inputData.normalWS;
+
+        float lightAttenuation = GetDirectionalShadowAttenuation(inputData.normalWS, inputData.positionWS);
+        float3 brdf = PBR(inputData, albedo.rgb, _Metallic* metal, float3(0.5, 0.5, 0.5), _Glossiness* rough, 1, float3(0, 0, 0), lightAttenuation);
 
         return float4(brdf,1);
         //return float4(normal,1);
@@ -123,6 +126,49 @@
 
         ENDHLSL
 
+        }
+
+        Pass
+        {
+            Tags{"LightMode"="ShadowCaster"}
+
+            ColorMask 0
+
+            HLSLPROGRAM
+#pragma target 3.5
+
+#pragma vertex ShadowVertex
+#pragma fragment ShaodwFragment
+
+            float4x4 unity_MatrixVP;
+            float4x4 unity_ObjectToWorld;
+            Texture2D _BaseMap;
+            SamplerState sampler_BaseMap;
+            float4 _BaseMap_TexelSize;
+
+            struct vertexInput {
+                float4 posOS : POSITION;
+                float2 uv :TEXCOORD0;
+            };
+
+            struct vertexOutput {
+                float4 posCS:SV_POSITION;
+                float2 uv:VAR_BASE_UV;
+            };
+
+            vertexOutput ShadowVertex(vertexInput input) {
+                vertexOutput output;
+                float4 worldPos = mul(unity_ObjectToWorld, input.posOS);
+                output.posCS = mul(unity_MatrixVP, worldPos);
+                output.uv = input.uv * _BaseMap_TexelSize.xy + _BaseMap_TexelSize.zw;
+                return output;
+            }
+
+            half4  ShaodwFragment(vertexOutput input):SV_TARGET {
+                return 1;
+            }
+
+            ENDHLSL
         }
     }
         //FallBack "Diffuse"

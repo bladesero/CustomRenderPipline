@@ -5,6 +5,9 @@ using UnityEngine.Rendering;
 
 public class OpaquePass : ScriptableRenderPass
 {
+    const string bufferName = "Render Opaque";
+    CommandBuffer buffer = new CommandBuffer { name = bufferName };
+
     static ShaderTagId[] ShaderTagIds = { new ShaderTagId("SRPDeafaultUnlit"),
         new ShaderTagId("CRPDiffuse"),
         new ShaderTagId("CRPLit")};
@@ -28,6 +31,7 @@ public class OpaquePass : ScriptableRenderPass
             };
             context.DrawRenderers(cullingResults, ref drawingSettings, ref filteringSettings);
         }
+        
     }
 
 }

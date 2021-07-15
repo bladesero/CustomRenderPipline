@@ -32,6 +32,8 @@ public class ForwardLight
     Vector4 k_DefaultLightSpotDirection = new Vector4(0.0f, 0.0f, 1.0f, 0.0f);
     Vector4 k_DefaultLightsProbeChannel = new Vector4(-1.0f, 1.0f, -1.0f, -1.0f);
 
+    public ShadowPass shadowcastpass;
+
     public ForwardLight()
     {
         LightConstantBuffer._MainLightPosition = Shader.PropertyToID("_MainLightPosition");
@@ -67,6 +69,8 @@ public class ForwardLight
             lightColor = new Vector4(0, 0, 0, 0);
         }
 
+        shadowcastpass = new ShadowPass(lights);
+
         cmd.SetGlobalVector(LightConstantBuffer._MainLightPosition, lightPos);
         cmd.SetGlobalVector(LightConstantBuffer._MainLightColor, lightColor);
     }
@@ -94,7 +98,7 @@ public class ForwardLight
         lightColor = lightData.finalColor;
     }
 
-    static int GetMainLightIndex(NativeArray<VisibleLight> visibleLights)
+    static public int GetMainLightIndex(NativeArray<VisibleLight> visibleLights)
     {
         int totalVisibleLights = visibleLights.Length;
         if (totalVisibleLights == 0)
@@ -121,4 +125,6 @@ public class ForwardLight
         }
         return brightestDirectionalLightIndex;
     }
+
+
 }
