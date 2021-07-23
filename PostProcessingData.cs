@@ -40,7 +40,19 @@ public class PostProcessingData:ScriptableObject
 
         [Reload("Shaders/PostProcessing/CopyDepth.shader")]
         public Shader CopyDepth;
+
+        [Reload("Shaders/PostProcessing/GTAO.shader")]
+        public Shader GTAO;
+    }
+
+
+    [Serializable, ReloadGroup]
+    public sealed class TexResources
+    {
+        [Reload("Shaders/Texs/AxisPattern.asset")]
+        public Texture2D AxisPattern;
     }
 
     public ShaderResources shaders;
+    public TexResources texs;
 }

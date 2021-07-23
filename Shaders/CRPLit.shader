@@ -25,8 +25,12 @@
         //CBUFFER_START(UnityPerDraw)
         float4x4 unity_MatrixVP;
         float4x4 unity_ObjectToWorld;
+        float4x4 unity_WorldToObject;
         float4x4 UNITY_MATRIX_M;
+        float4x4 unity_MatrixInvV;
         float3 _WorldSpaceCameraPos;
+        static float4x4 unity_MatrixITMV = transpose(mul(unity_WorldToObject, unity_MatrixInvV));
+        float4x4 UNITY_MATRIX_MV;
 
         //CBUFFER_END
         float4 _Color;
@@ -58,6 +62,7 @@
     {
         float4 clipPos : SV_POSITION;
         float2 uv : TEXCOORD0;
+        float3 vnormal:TEXCOORD1;
         float3 normal : VAR_NORMAL;
         float4 tangentWS:VAR_TANGENT;
         float4 worldPos : TEXCOORD2;
@@ -77,13 +82,14 @@
         output.clipPos = mul(unity_MatrixVP, worldPos);
         output.worldPos = worldPos;
         output.normal = mul((float3x3)unity_ObjectToWorld,input.normal);
+        output.vnormal = normalize(mul((float3x3)unity_MatrixITMV, input.normal));
         //output.normal = input.normal;
         output.uv = input.uv;
         output.tangentWS = float4(mul((float3x3)unity_ObjectToWorld,input.tangent.xyz), input.tangent.w);
         return output;
     }
 
-    float4 frag(vertexOutput input, out float3 GRT0:SV_Target1) :SV_TARGET
+    float4 frag(vertexOutput input, out float3 GRT0:SV_Target1, out float3 GRT1 : SV_Target2) :SV_TARGET
     {
         //base vectors
         float3 viewdir = normalize(_WorldSpaceCameraPos.xyz - input.worldPos.xyz);
@@ -115,7 +121,9 @@
         inputData.viewDirectionWS = viewdir;
         inputData.bakedGI = 1;
         
-        GRT0 = inputData.normalWS;
+        //GRT0 = inputData.normalWS;
+        GRT0 = input.vnormal;
+        GRT1 = albedo.rgb;
 
         float lightAttenuation = GetDirectionalShadowAttenuation(inputData.normalWS, inputData.positionWS);
         float3 brdf = PBR(inputData, albedo.rgb, _Metallic* metal, float3(0.5, 0.5, 0.5), _Glossiness* rough, 1, float3(0, 0, 0), lightAttenuation);

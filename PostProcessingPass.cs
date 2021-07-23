@@ -59,8 +59,11 @@ public class PostProcessingPass : ScriptableRenderPass
 
     const string k_RenderPostProcessingTag = "Render PostProcessing Effects";
 
+    public float renderScale = 1.0f;
+
     FXAA FXAAPass =new FXAA();
     CopyDepth copyDepthPass = new CopyDepth();
+    GTAO GTAOPass = new GTAO();
 
     public PostProcessingPass()
     {
@@ -91,6 +94,32 @@ public class PostProcessingPass : ScriptableRenderPass
                 copyDepthPass.Execute(context, camera, cmd);
         }
 
+        {//AO Pass
+            if(GTAOPass.m_BlitMaterial==null)
+            {
+                GTAOPass.m_BlitMaterial = new Material(postProcessData.shaders.GTAO);
+                GTAOPass.m_BlitMaterial.hideFlags = HideFlags.HideAndDontSave;
+                
+                int interleavePatternWidth, interleavePaternHeight;
+                if(postProcessData.texs.AxisPattern)
+                {
+                    Shader.SetGlobalTexture("_AxisTexture", postProcessData.texs.AxisPattern);
+                    interleavePatternWidth = postProcessData.texs.AxisPattern.width;
+                    interleavePaternHeight = postProcessData.texs.AxisPattern.height;
+                }
+                else
+                {
+                    interleavePatternWidth = 1; interleavePaternHeight = 1;
+                }
+                Shader.SetGlobalVector("_InterleavePatternScale", 
+                    new Vector2(renderScale*camera.pixelWidth/interleavePatternWidth,renderScale*camera.pixelHeight/interleavePaternHeight));
+            }
+
+
+            if (camera.cameraType == CameraType.SceneView || camera.cameraType == CameraType.Game)
+                GTAOPass.Execute(context, camera, cmd, this.renderScale);
+        }
+
         {//FXAA Pass
             FXAAPass.m_Source.Init("_CameraColorTexture");
 
@@ -105,8 +134,8 @@ public class PostProcessingPass : ScriptableRenderPass
             if (camera.cameraType == CameraType.SceneView || camera.cameraType == CameraType.Game)
                 FXAAPass.Execute(context, camera, cmd);
         }
-        
 
+        cmd.ReleaseTemporaryRT(GTAOPass.m_OcclusionOrigin.id);
         context.ExecuteCommandBuffer(cmd);
         CommandBufferPool.Release(cmd);
     }

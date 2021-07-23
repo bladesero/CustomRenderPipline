@@ -20,11 +20,12 @@ public class CRPRenderer
     static Material errorMaterial;
     static int cameraColorTextureId = Shader.PropertyToID("_CameraColorTexture");
     static int cameraDepthTextureId = Shader.PropertyToID("_CameraDepthTexture");
+    static int cameraBaseColorTextureId = Shader.PropertyToID("_CameraBaseColorTexture");
     static int cameraNormalTextureId= Shader.PropertyToID("_CameraNormalTexture");
 
     static RenderTargetIdentifier[] gbuffers = new RenderTargetIdentifier[]
     {
-        cameraColorTextureId,cameraNormalTextureId
+        cameraColorTextureId,cameraNormalTextureId,cameraBaseColorTextureId
     };
 
     public float renderScale = 1.0f;
@@ -49,6 +50,7 @@ public class CRPRenderer
         this.context = context;
         this.camera = camera;
 
+        processingPass.renderScale = renderScale;
         int width = (int)(renderScale * camera.pixelWidth);
         int height = (int)(renderScale * camera.pixelHeight);
 
@@ -58,7 +60,11 @@ public class CRPRenderer
         buffer.GetTemporaryRT(cameraColorTextureId, width,
             height, 0,
                 FilterMode.Bilinear, RenderTextureFormat.RGB111110Float);
-        
+
+        buffer.GetTemporaryRT(cameraBaseColorTextureId, width,
+            height, 0,
+                FilterMode.Bilinear, RenderTextureFormat.Default);
+
         buffer.GetTemporaryRT(cameraNormalTextureId, width,
             height, 0,
                 FilterMode.Bilinear, RenderTextureFormat.Default);

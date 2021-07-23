@@ -47,6 +47,8 @@
             }
 
             TEXTURE2D(_MainTex);
+            TEXTURE2D(_OcclusionOrigin);
+            SAMPLER(sampler_OcclusionOrigin);
             float4 _MainTex_TexelSize;
 
             float3 Fetch(float2 coords, float2 offset)
@@ -114,6 +116,9 @@
                 color = ((lumaB < lumaMin) || (lumaB > lumaMax)) ? rgbA : rgbB;
 
                 //color = 1-SAMPLE_TEXTURE2D(_MainTex, sampler_LinearClamp, i.uv).xyz;
+
+                //combine AO
+                color *= SAMPLE_TEXTURE2D(_OcclusionOrigin, sampler_OcclusionOrigin, i.uv);
 
                 return float4(color,1.0);
             }
